@@ -1,7 +1,3 @@
-Understood. Here is the **complete and structured CI/CD lab** for your *Capstone project* with explanations, hints, and proper step-by-step flow — clear and educational, not minimalist.
-
----
-
 # **Capstone Lab – CI/CD with GitHub Actions and AWS EKS**
 
 ---
@@ -96,6 +92,8 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
    * **Subnets:** select all public subnets (3a, 3b, 3c)
 4. Click **Create**.
 
+5. ![img_1.png](images/img_1.png)
+
 💡 *Hint: the cluster creation takes a few minutes.*
 
 Once active, connect to it:
@@ -104,8 +102,28 @@ Once active, connect to it:
 aws eks update-kubeconfig --region eu-west-3 --name capstone-cluster
 kubectl get nodes
 ```
+![img_2.png](images/img_2.png)
 
 ---
+
+✅ **3. Register GitHub Actions IAM User in EKS (AWS Console)**
+
+In **EKS Auto Mode**, you must register the IAM user in the **EKS Access** section so that AWS recognizes it as an authorized principal for cluster access.
+
+This step lets your **GitHub Actions IAM user** authenticate with the EKS cluster API.
+
+Without it, even if the user has EKS permissions in IAM, `kubectl` or `helm` commands in your workflow will fail with *“You must be logged in to the server”*.
+
+1. Open **AWS Console → EKS → Clusters → `<your-cluster>` → Access**.
+2. Click **Add access entry**.
+3. Set:
+
+   * **Principal type:** `IAM user`
+   * **Principal:** `arn:aws:iam::<account-id>:user/github-actions`
+4. Leave **Access policies** empty.
+5. Click **Create**.
+6. 
+![img_4.png](images/img_4.png)
 
 ## **3. Create Amazon ECR Repositories**
 
@@ -184,7 +202,47 @@ GitHub Actions needs its own AWS credentials to push images and deploy updates.
 
 💡 **Hint:** This user does **not** need console access, only API access.
 
+## Granting GitHub Actions Access to EKS
 
+1. Update your EKS cluster context by running:
+
+   ```bash
+   aws eks update-kubeconfig --name capstone-cluster
+   ```
+---
+
+### Step 2 – Create a ClusterRoleBinding for the GitHub IAM user
+
+Run the following command directly in CloudShell:
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: github-actions-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: User
+    name: <github-iam>
+    apiGroup: rbac.authorization.k8s.io
+EOF
+```
+
+This creates a **ClusterRoleBinding** named `github-actions-admin` that links the IAM user `github-actions` to the `cluster-admin` role.
+It gives the GitHub Actions workflow full access to manage all Kubernetes resources in the cluster.
+
+![img_3.png](images/img_3.png)
+
+⚠️ Important:
+Don’t forget to replace <github-iam> with the iam created in Step 0.
+
+> Note: The cluster-admin role is a default Kubernetes role that provides the highest level of privileges across all namespaces in the cluster. It is typically used only for automation or administrative users.
+
+---
 
 ### **Step 1 – Create the workflow file**
 
@@ -333,7 +391,7 @@ You should see the `latest` image tag for:
 * `capstone/client-service`
 * `capstone/account-service`
 
-![img.png](img.png)
+![img.png](images/img.png)
 
 💡 *Hint: If you don’t see the images, confirm that your GitHub workflow used the right AWS region and your ECR repository names are correct.*
 
@@ -428,15 +486,6 @@ spec:
 
 💡 *Hint: ClusterIP is the default and is used for internal communication between Pods.*
 
-Once ready, apply the manifests:
-
-```bash
-kubectl apply -f client-service-deployment.yaml
-kubectl get pods,svc
-```
-
-You should see a Pod and a Service named `client-service`.
-
 ---
 
 ## **Step 3 – Account Service Manifests**
@@ -451,25 +500,9 @@ Create a file `account-service-deployment.yaml`:
 
 💡 *Hint: In Compose, `account-service` communicated with `client-service` via the network `api-net`. In Kubernetes, the Service name automatically acts as the hostname.*
 
-Test that both services are running:
-
-```bash
-kubectl get svc
-```
-
-You should see:
-
-```
-NAME              TYPE        CLUSTER-IP      PORT(S)    AGE
-client-service    ClusterIP   10.0.x.x        8081/TCP   1m
-account-service   ClusterIP   10.0.y.y        8082/TCP   1m
-```
-
----
-
 ## **Step 4 – API Gateway Manifests**
 
-Now you’ll deploy the entry point — the **Spring Cloud Gateway** — which routes traffic to the two microservices.
+Now you’ll prepare the entry point manifests — the **Spring Cloud Gateway** — which routes traffic to the two microservices.
 
 ---
 
@@ -500,12 +533,6 @@ data:
 ```
 
 💡 *Hint: ConfigMaps make your manifests cleaner and allow reusing the same Deployment across environments (dev, qa, prod).*
-
-Apply it:
-
-```bash
-kubectl apply -f api-gateway-configmap.yaml
-```
 
 ---
 
@@ -561,16 +588,6 @@ spec:
   type: LoadBalancer
 ```
 
-Apply both manifests:
-
-```bash
-kubectl apply -f api-gateway-deployment.yaml
-kubectl apply -f api-gateway-configmap.yaml
-kubectl get svc
-```
-
-Wait for the `EXTERNAL-IP` column to display the gateway’s public address.
-
 💡 *Hint: On AWS, this can take a few minutes while the ELB is created.*
 
 ---
@@ -596,7 +613,7 @@ spec:
 ```
 
 💡 *Hint 1:* NodePort values must be between 30000–32767.
-💡 *Hint 2:* Retrieve your node’s public IP with:
+💡 *Hint 2:* When deploying, retrieve your node’s public IP with:
 
 ```bash
 kubectl get nodes -o wide
@@ -607,31 +624,11 @@ Then test:
 ```bash
 curl http://<Node-Public-IP>:30083/api/clients
 ```
-
----
-
-## **Step 5 – Verify the Routing**
-
-Once the gateway is exposed (via LoadBalancer or NodePort), test the routing:
-
-```bash
-curl http://<EXTERNAL-IP>/api/clients
-curl http://<EXTERNAL-IP>/api/accounts
-```
-
-You should receive the list of clients and accounts served through the gateway.
-
-💡 *Hint: If you get 404 or timeout, check routing with*
-
-```bash
-kubectl logs -l app=api-gateway
-```
-
 ---
 
 # **7. Helm Packaging and Deployment**
 
-Now that you have validated your Kubernetes manifests manually, it’s time to **automate and standardize deployments** using **Helm**.
+Now that you have developed your Kubernetes manifests manually, it’s time to **automate and standardize deployments** using **Helm**.
 
 >💡 Helm allows you to package all manifests (Deployments, Services, ConfigMaps, etc.) into a **single reusable chart**, simplifying upgrades, rollbacks, and parameterization across environments (dev, qa, prod).
 
@@ -826,18 +823,195 @@ You can then inspect the file content:
 rendered-capstone.yaml
 ```
 
+Voici la version **développée et complète** de la section **Step 9 – Integrate Helm into CI/CD**, adaptée à ton pipeline `Build, Push and Deploy Capstone to EKS`.
+Elle explique chaque étape du job `deploy` et comment cela transforme le pipeline en une vraie **chaîne CI/CD complète** :
+
+---
+
 ## **Step 9 – Integrate Helm into CI/CD**
 
-Now, let's extend the GitHub Actions pipeline to **deploy automatically to EKS** after image build.
+Now that your GitHub Actions workflow successfully builds and pushes Docker images to **Amazon ECR**,
+the next step is to **automatically deploy them to your EKS cluster** using **Helm**.
 
-Add a final job to your workflow:
+This integration converts your workflow from a *Continuous Integration (CI)* process
+into a full *Continuous Deployment (CD)* pipeline.
 
-1. Configure `kubectl` with `aws eks update-kubeconfig`.
-2. Install or upgrade the Helm release:
+---
 
-   ```bash
-   helm upgrade --install capstone ./capstone --namespace default
-   ```
+### **1. Add a new job after the build**
 
-💡 *Hint: This transforms your CI workflow into a complete **CI/CD pipeline**, automatically deploying each new version to EKS.*
+At the end of your workflow, define a second job named `deploy` that depends on `build`:
+
+```yaml
+  deploy:
+    name: Deploy All Services to EKS
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+```
+
+This ensures the deployment only runs **after** all Docker images are built and pushed successfully.
+
+---
+
+### **2. Checkout the Helm Chart and Source Code**
+
+The first step inside the job is to fetch your Helm chart and templates:
+
+```yaml
+      - name: Checkout repository
+        uses: actions/checkout@v4
+```
+
+This provides the Helm chart (in your `capstone/` directory) needed for deployment.
+
+---
+
+### **3. Authenticate to AWS**
+
+The pipeline must have AWS access to connect to EKS and pull from ECR:
+
+```yaml
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+```
+
+This uses your repository’s encrypted AWS secrets to authenticate the workflow runner.
+
+---
+
+### **4. Install Kubernetes and Helm Tools**
+
+To deploy resources, the runner needs both `kubectl` and `helm`:
+
+```yaml
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+```
+
+These steps ensure the runner has the tools necessary to interact with the cluster.
+
+---
+
+### **5. Configure Access to the EKS Cluster**
+
+Next, configure `kubectl` to communicate with your EKS cluster:
+
+```yaml
+      - name: Configure access to EKS cluster
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name capstone-cluster
+```
+
+This pulls the cluster’s credentials and updates the local `kubeconfig` used by `kubectl` and `helm`.
+
+---
+
+### **6. Verify Cluster Connectivity**
+
+A sanity check to confirm access to the cluster:
+
+```yaml
+      - name: Verify cluster connectivity
+        run: |
+          kubectl get nodes
+          kubectl get ns
+```
+
+You should see your EKS nodes in **Ready** state.
+
+---
+
+### **7. Deploy the Helm Chart**
+
+Finally, deploy all microservices with Helm:
+
+```yaml
+      - name: Deploy all Capstone services via Helm
+        run: |
+          helm upgrade --install capstone ./capstone \
+            --namespace default \
+            --set image.registry=$ECR_REGISTRY \
+            --set image.tag=latest \
+            --set apiGateway.serviceType=LoadBalancer \
+            --set apiGateway.keycloakIssuer="https://capstone-keycloak.duckdns.org/realms/training-realm" \
+            --set clientService.name=client-service \
+            --set accountService.name=account-service
+```
+
+### Explanation:
+
+* `helm upgrade --install` → installs if it doesn’t exist, upgrades if it does.
+* `--set` flags dynamically inject runtime values (registry, tag, Keycloak URL, service type).
+* `apiGateway.serviceType=LoadBalancer` → automatically provisions a **public AWS ELB**.
+* `image.tag=latest` ensures you deploy the newest Docker images built in the `build` job.
+
+---
+
+### **8. Validate Deployment**
+
+Once Helm applies the changes, verify that the services and pods are live:
+
+```yaml
+      - name: Verify Deployment
+        run: |
+          kubectl get pods -n default
+          kubectl get svc -n default
+```
+You should see:
+
+* Pods in **Running** status.
+* The `api-gateway` service exposing an **EXTERNAL-IP** (AWS ELB).
+
+---
+
+### **Verification and Testing**
+
+Now let’s make sure that our application is running properly on AWS EKS.
+
+**Let’s verify our resources in AWS CloudShell:**
+
+![img\_5.png](images/img_5.png)
+
+We now have our Load Balancer configured and reachable at:
+**[http://adfb52f559c5d4ead9ec398741e55e3f-1161015783.eu-west-3.elb.amazonaws.com](http://adfb52f559c5d4ead9ec398741e55e3f-1161015783.eu-west-3.elb.amazonaws.com)**
+
+We can easily test it using `POSTMAN` or any HTTP client to send requests and validate the application workflow.
+
+![img\_7.png](images/img_7.png)
+
+The **401 Unauthorized** response is expected — it confirms that **Keycloak authentication** is correctly enforced.
+
+![img\_8.png](images/img_8.png)
+
+To access the secured endpoints, we need to include a **Bearer token**.
+First, ensure that a user (e.g., `ryma`) exists in your **Keycloak realm**, then request a token using:
+
+```bash
+curl -s -X POST "https://capstone-keycloak.duckdns.org/realms/training-realm/protocol/openid-connect/token" \
+  -d "client_id=api-gateway-client" \
+  -d "grant_type=password" \
+  -d "username=ryma" \
+  -d "password=ryma" | jq -r .access_token
+```
+
+Copy the returned token, and add it in **Postman** under the **Authorization** tab as a **Bearer Token**.
+
+After that, send your request again — the API should now respond successfully.
+
+![img\_6.png](images/img_6.png)
+
+
+
 
