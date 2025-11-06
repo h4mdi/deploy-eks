@@ -13,6 +13,8 @@ The goal of this lab is to move from local development to a fully automated CI/C
 Each service is a Spring Boot microservice built as a Docker image and deployed to **Amazon EKS**.
 The CI/CD pipeline is handled by **GitHub Actions**, which builds, containers, and pushes the images to **Amazon Elastic Container Registry (ECR)**.
 
+## **Architecture Overview**
+
 Authentication is centralized with a shared Keycloak instance.
 
 >💡 Keycloak is a **centralized Identity and Access Management (IAM)** solution.
