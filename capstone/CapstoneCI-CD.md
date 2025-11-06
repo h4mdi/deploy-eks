@@ -89,8 +89,8 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 
    * **Name:** `capstone-cluster`
    * **Kubernetes version:** `1.33`
-   * **IAM Role:** click *Create recommended role*
-   * **VPC:** choose *default VPC*
+   * **Cluster IAM Role:** select *AmazonEKSAutoClusterRole*
+   * **Node IAM Role:** select *AmazonEKSAutoNodeRole*   * **VPC:** choose *default VPC*
    * **Subnets:** select all public subnets (3a, 3b, 3c)
 4. Click **Create**.
 
@@ -108,26 +108,7 @@ kubectl get nodes
 
 ---
 
-✅ **3. Register GitHub Actions IAM User in EKS (AWS Console)**
-
-In **EKS Auto Mode**, you must register the IAM user in the **EKS Access** section so that AWS recognizes it as an authorized principal for cluster access.
-
-This step lets your **GitHub Actions IAM user** authenticate with the EKS cluster API.
-
-Without it, even if the user has EKS permissions in IAM, `kubectl` or `helm` commands in your workflow will fail with *“You must be logged in to the server”*.
-
-1. Open **AWS Console → EKS → Clusters → `<your-cluster>` → Access**.
-2. Click **Add access entry**.
-3. Set:
-
-   * **Principal type:** `IAM user`
-   * **Principal:** `arn:aws:iam::<account-id>:user/github-actions`
-4. Leave **Access policies** empty.
-5. Click **Create**.
-6. 
-![img_4.png](images/img_4.png)
-
-## **3. Create Amazon ECR Repositories**
+**3. Create Amazon ECR Repositories**
 
 Create three repositories in **ECR** (one per service):
 
@@ -213,7 +194,7 @@ GitHub Actions needs its own AWS credentials to push images and deploy updates.
    ```
 ---
 
-### Step 2 – Create a ClusterRoleBinding for the GitHub IAM user
+### Create a ClusterRoleBinding for the GitHub IAM user
 
 Run the following command directly in CloudShell:
 
@@ -244,6 +225,28 @@ Don’t forget to replace <github-iam> with the iam created in Step 0.
 
 > Note: The cluster-admin role is a default Kubernetes role that provides the highest level of privileges across all namespaces in the cluster. It is typically used only for automation or administrative users.
 
+---
+
+
+
+### ** Register GitHub Actions IAM User in EKS (AWS Console)**
+
+This step lets your **GitHub Actions IAM user** authenticate with the EKS cluster API.
+
+Without it, even if the user has EKS permissions in IAM, `kubectl` or `helm` commands in your workflow will fail later with *“You must be logged in to the server”*.
+
+1. Open **AWS Console → EKS → Clusters → `<your-cluster>` → Access**.
+2. Click **Add access entry**.
+3. Set:
+
+   * **Principal type:** `IAM user`
+   * **Principal:** `arn:aws:iam::<account-id>:user/github-actions`
+4. Leave **Access policies** empty.
+5. Click **Create**.
+6.
+![img_4.png](images/img_4.png)
+
+##
 ---
 
 ### **Step 1 – Create the workflow file**
