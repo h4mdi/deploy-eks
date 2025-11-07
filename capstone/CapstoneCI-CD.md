@@ -755,8 +755,6 @@ spec:
   type: {{ .Values.apiGateway.serviceType }}
 ```
 
-💡 *Hint: All hardcoded values from your previous manifests are now dynamic and reusable.*
-
 ---
 
 ## **Step 7 – Template Client and Account Services**
@@ -789,9 +787,6 @@ You can then inspect the file content:
 ```bash
 rendered-capstone.yaml
 ```
-
-Voici la version **développée et complète** de la section **Step 9 – Integrate Helm into CI/CD**, adaptée à ton pipeline `Build, Push and Deploy Capstone to EKS`.
-Elle explique chaque étape du job `deploy` et comment cela transforme le pipeline en une vraie **chaîne CI/CD complète** :
 
 ---
 
@@ -965,13 +960,42 @@ The **401 Unauthorized** response is expected — it confirms that **Keycloak au
 To access the secured endpoints, we need to include a **Bearer token**.
 First, ensure that a user (e.g., `ryma`) exists in your **Keycloak realm**, then request a token using:
 
+
+````markdown
+### Linux / macOS (bash)
+
 ```bash
 curl -s -X POST "https://capstone-keycloak.duckdns.org/realms/training-realm/protocol/openid-connect/token" \
   -d "client_id=api-gateway-client" \
   -d "grant_type=password" \
   -d "username=ryma" \
   -d "password=ryma" | jq -r .access_token
+````
+
+---
+
+### Windows (PowerShell)
+
+```powershell
+$realm = "training-realm"
+$keycloakUrl = "https://capstone-keycloak.duckdns.org"
+$clientId = "api-gateway-client"
+$username = "ryma"
+$password = "ryma"
+
+$response = Invoke-RestMethod -Method Post `
+  -Uri "$keycloakUrl/realms/$realm/protocol/openid-connect/token" `
+  -Headers @{ "Content-Type" = "application/x-www-form-urlencoded" } `
+  -Body @{
+    grant_type = "password"
+    client_id  = $clientId
+    username   = $username
+    password   = $password
+  }
+
+$response.access_token
 ```
+
 
 Copy the returned token, and add it in **Postman** under the **Authorization** tab as a **Bearer Token**.
 
