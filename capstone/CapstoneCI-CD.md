@@ -229,7 +229,7 @@ Don’t forget to replace <github-iam> with the iam created in Step 0.
 
 
 
-### ** Register GitHub Actions IAM User in EKS (AWS Console)**
+### Register GitHub Actions IAM User in EKS (AWS Console)
 
 This step lets your **GitHub Actions IAM user** authenticate with the EKS cluster API.
 
