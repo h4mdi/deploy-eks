@@ -241,9 +241,6 @@ Without it, even if the user has EKS permissions in IAM, `kubectl` or `helm` com
    * **IAM Principal ARN :** `arn:aws:iam::<account-id>:user/github-actions`
 4. Leave **Access policies** empty.
 5. Click **Create**.
-6.
-![img_4.png](images/img_4.png)
-
 ##
 ---
 
