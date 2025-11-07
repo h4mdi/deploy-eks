@@ -128,7 +128,7 @@ You will get URIs like:
 
 ---
 
-## **4. Configure GitHub Secrets**
+## **4. Configure GitHub Secrets in Your Application Code Repository**
 
 In GitHub:
 
