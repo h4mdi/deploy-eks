@@ -238,8 +238,7 @@ Without it, even if the user has EKS permissions in IAM, `kubectl` or `helm` com
 1. Open **AWS Console → EKS → Clusters → `<your-cluster>` → Access**.
 2. Click **Add access entry**.
 3. Set:
-
-   * **Principal:** `arn:aws:iam::<account-id>:user/github-actions`
+   * **IAM Principal ARN :** `arn:aws:iam::<account-id>:user/github-actions`
 4. Leave **Access policies** empty.
 5. Click **Create**.
 6.
