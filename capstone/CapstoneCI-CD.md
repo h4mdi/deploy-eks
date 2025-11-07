@@ -419,7 +419,7 @@ In this phase, you will define:
 
 * **Deployments** to manage Pods,
 * **Services** for internal communication,
-* **LoadBalancer** or **NodePort** to expose the API Gateway externally.
+* **LoadBalancer** to expose the API Gateway externally.
 
 ---
 
@@ -592,39 +592,6 @@ spec:
 
 ---
 
-### **If the LoadBalancer fails**
-
-If the external LoadBalancer remains **`<pending>`**, switch to a **NodePort** service instead.
-This exposes the gateway on each node’s public IP.
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: api-gateway
-spec:
-  selector:
-    app: api-gateway
-  ports:
-    - port: 8083
-      targetPort: 8083
-      nodePort: 30083
-  type: NodePort
-```
-
-💡 *Hint 1:* NodePort values must be between 30000–32767.
-💡 *Hint 2:* When deploying, retrieve your node’s public IP with:
-
-```bash
-kubectl get nodes -o wide
-```
-
-Then test:
-
-```bash
-curl http://<Node-Public-IP>:30083/api/clients
-```
----
 
 # **7. Helm Packaging and Deployment**
 
