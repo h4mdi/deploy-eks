@@ -239,7 +239,6 @@ Without it, even if the user has EKS permissions in IAM, `kubectl` or `helm` com
 2. Click **Add access entry**.
 3. Set:
 
-   * **Principal type:** `IAM user`
    * **Principal:** `arn:aws:iam::<account-id>:user/github-actions`
 4. Leave **Access policies** empty.
 5. Click **Create**.
